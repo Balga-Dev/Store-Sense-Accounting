@@ -1,0 +1,28 @@
+{
+  "name": "store-sense",
+  "version": "1.0.0",
+  "private": true,
+  "description": "StoreSense Accounting - Enterprise Multi-Business SaaS Platform",
+  "workspaces": [
+    "backend",
+    "frontend",
+    "frontend-items"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "dev:frontend-items": "npm run dev --workspace=frontend-items",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:frontend-items\"",
+    "build:backend": "npm run build --workspace=backend",
+    "build:frontend": "npm run build --workspace=frontend",
+    "build:frontend-items": "npm run build --workspace=frontend-items",
+    "build": "npm run build:backend && npm run build:frontend && npm run build:frontend-items",
+    "db:migrate": "npm run db:migrate --workspace=backend",
+    "db:generate": "npm run db:generate --workspace=backend",
+    "db:seed": "npm run db:seed --workspace=backend",
+    "db:init": "npm run db:generate && npm run db:migrate && npm run db:seed"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

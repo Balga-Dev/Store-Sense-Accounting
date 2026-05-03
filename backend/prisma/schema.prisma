@@ -1,0 +1,440 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleType {
+  SUPER_ADMIN
+  BUSINESS_MANAGER
+  SUPERVISOR
+  CASHIER
+  VIEWER
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum ActivityAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  PASSWORD_RESET
+  ROLE_ASSIGN
+  PERMISSION_CHANGE
+}
+
+model SuperAdmin {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("super_admins")
+}
+
+model Business {
+  id           String   @id @default(uuid())
+  businessCode String   @unique
+  name         String
+  type         String
+  description  String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  users          User[]
+  roles          Role[]
+  items          Item[]
+  transactions   Transaction[]
+  categories     Category[]
+  purchaseOrders PurchaseOrder[]
+  expenses       Expense[]
+  notifications  Notification[]
+  activityLogs   ActivityLog[]
+  suppliers      Supplier[]
+  customers      Customer[]
+
+  @@map("businesses")
+  @@index([businessCode])
+  @@index([isActive])
+}
+
+model User {
+  id              String   @id @default(uuid())
+  businessId      String
+  username        String
+  password        String
+  email           String?
+  fullName        String?
+  isActive        Boolean  @default(true)
+  mustResetPassword Boolean @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  business    Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  roleId      String
+  role        Role           @relation(fields: [roleId], references: [id])
+  transactions Transaction[] @relation("TransactionCreator")
+  items       Item[]         @relation("ItemCreator")
+  activityLogs ActivityLog[] @relation("ActivityLogUser")
+  notifications Notification[]
+  userTabOverrides UserTabPermissionOverride[]
+  userActionOverrides UserActionPermissionOverride[]
+
+  @@unique([businessId, username])
+  @@map("users")
+  @@index([businessId])
+  @@index([roleId])
+}
+
+model Role {
+  id           String   @id @default(uuid())
+  businessId   String?
+  name         String
+  roleType     RoleType?
+  isDefault    Boolean  @default(false)
+  description  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  business       Business?              @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  users          User[]
+  tabPermissions RoleTabPermission[]
+  actionPermissions RoleActionPermission[]
+
+  @@unique([businessId, name])
+  @@map("roles")
+  @@index([businessId])
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  label       String
+  description String?
+  category    String
+  createdAt   DateTime @default(now())
+
+  roleTabPermissions RoleTabPermission[]
+  roleActionPermissions RoleActionPermission[]
+  customerTabOverrides CustomerTabPermissionOverride[]
+  customerActionOverrides CustomerActionPermissionOverride[]
+  userTabOverrides UserTabPermissionOverride[]
+  userActionOverrides UserActionPermissionOverride[]
+
+  @@map("permissions")
+  @@index([category])
+}
+
+model RoleTabPermission {
+  id           String @id @default(uuid())
+  roleId       String
+  permissionId String
+  isEnabled    Boolean @default(true)
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_tab_permissions")
+  @@index([roleId])
+}
+
+model RoleActionPermission {
+  id           String @id @default(uuid())
+  roleId       String
+  permissionId String
+  isEnabled    Boolean @default(true)
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_action_permissions")
+  @@index([roleId])
+}
+
+model CustomerTabPermissionOverride {
+  id           String @id @default(uuid())
+  customerId   String
+  permissionId String
+  isEnabled    Boolean
+
+  customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, permissionId])
+  @@map("customer_tab_permission_overrides")
+  @@index([customerId])
+}
+
+model CustomerActionPermissionOverride {
+  id           String @id @default(uuid())
+  customerId   String
+  permissionId String
+  isEnabled    Boolean
+
+  customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, permissionId])
+  @@map("customer_action_permission_overrides")
+  @@index([customerId])
+}
+
+model UserTabPermissionOverride {
+  id           String @id @default(uuid())
+  userId       String
+  permissionId String
+  isEnabled    Boolean
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permissionId])
+  @@map("user_tab_permission_overrides")
+  @@index([userId])
+}
+
+model UserActionPermissionOverride {
+  id           String @id @default(uuid())
+  userId       String
+  permissionId String
+  isEnabled    Boolean
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permissionId])
+  @@map("user_action_permission_overrides")
+  @@index([userId])
+}
+
+model Item {
+  id          String   @id @default(uuid())
+  businessId  String
+  itemCode    String
+  name        String
+  price       Decimal  @db.Decimal(10, 2)
+  cost        Decimal? @db.Decimal(10, 2)
+  category    String?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdById  String
+  createdBy    User          @relation("ItemCreator", fields: [createdById], references: [id])
+  transactions ItemTransaction[]
+
+  @@unique([businessId, itemCode])
+  @@map("items")
+  @@index([businessId])
+  @@index([isActive])
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  businessId  String
+  name        String
+  type        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@unique([businessId, name, type])
+  @@map("categories")
+  @@index([businessId])
+  @@index([type])
+}
+
+model Transaction {
+  id           String          @id @default(uuid())
+  businessId   String
+  type         TransactionType
+  amount       Decimal         @db.Decimal(10, 2)
+  categoryId   String?
+  category     Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  description  String?
+  reference    String?
+  date         DateTime        @default(now())
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  createdById  String
+  createdBy    User            @relation("TransactionCreator", fields: [createdById], references: [id])
+  items        ItemTransaction[]
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("transactions")
+  @@index([businessId])
+  @@index([type])
+  @@index([date])
+  @@index([createdById])
+}
+
+model ItemTransaction {
+  id            String      @id @default(uuid())
+  transactionId String
+  itemId        String
+  quantity      Int         @default(1)
+  unitPrice     Decimal     @db.Decimal(10, 2)
+  total         Decimal     @db.Decimal(10, 2)
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  item        Item        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([transactionId, itemId])
+  @@map("item_transactions")
+  @@index([transactionId])
+  @@index([itemId])
+}
+
+model DailyLog {
+  id           String   @id @default(uuid())
+  businessId   String
+  date         DateTime @db.Date
+  totalIncome  Decimal  @default(0) @db.Decimal(10, 2)
+  totalExpenses Decimal @default(0) @db.Decimal(10, 2)
+  netBalance   Decimal  @default(0) @db.Decimal(10, 2)
+  transactionCount Int @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([businessId, date])
+  @@map("daily_logs")
+  @@index([businessId])
+  @@index([date])
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  businessId  String
+  amount      Decimal  @db.Decimal(10, 2)
+  category    String
+  description String?
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("expenses")
+  @@index([businessId])
+  @@index([date])
+}
+
+model PurchaseOrder {
+  id          String   @id @default(uuid())
+  businessId  String
+  supplierId  String?
+  orderNumber String
+  totalAmount Decimal  @db.Decimal(10, 2)
+  status      String   @default("PENDING")
+  notes       String?
+  orderDate   DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, orderNumber])
+  @@map("purchase_orders")
+  @@index([businessId])
+}
+
+model Supplier {
+  id          String   @id @default(uuid())
+  businessId  String
+  name        String
+  contact     String?
+  email       String?
+  phone       String?
+  address     String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, name])
+  @@map("suppliers")
+  @@index([businessId])
+}
+
+model Customer {
+  id              String   @id @default(uuid())
+  businessId      String
+  name            String
+  email           String?
+  phone           String?
+  loyaltyPoints   Int      @default(0)
+  totalSpent      Decimal  @default(0) @db.Decimal(10, 2)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  tabPermissions  CustomerTabPermissionOverride[]
+  actionPermissions CustomerActionPermissionOverride[]
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, email])
+  @@map("customers")
+  @@index([businessId])
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  businessId  String
+  userId      String?
+  title       String
+  message     String
+  type        String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("notifications")
+  @@index([businessId])
+  @@index([userId])
+  @@index([isRead])
+}
+
+model ActivityLog {
+  id          String          @id @default(uuid())
+  businessId  String
+  userId      String
+  action      ActivityAction
+  entityType  String
+  entityId    String?
+  details     String?
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime        @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user     User     @relation("ActivityLogUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("activity_logs")
+  @@index([businessId])
+  @@index([userId])
+  @@index([action])
+  @@index([timestamp])
+}
